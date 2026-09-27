@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Organizador de Pedidos</title>
+<style>
+:root{
+  --bg:#f6f5f2; --card:#ffffff; --ink:#1c1b19; --sub:#6b675f;
+  --accent:#b5502a; --accent2:#2f6f4f; --line:#e6e3dd; --pend:#c9a227; --sep:#2f6f4f; --ent:#6b675f;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17140f; --card:#211d17; --ink:#f2ede4; --sub:#a89f8f; --line:#38322a;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#17140f; --card:#211d17; --ink:#f2ede4; --sub:#a89f8f; --line:#38322a;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,'Times New Roman',serif;padding:24px 16px 60px;}
+h1{font-size:1.6rem;margin:0 0 4px;letter-spacing:.5px;}
+.sub{color:var(--sub);margin:0 0 22px;font-size:.95rem;}
+.wrap{max-width:760px;margin:0 auto;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:18px;}
+.row{display:flex;gap:10px;flex-wrap:wrap;}
+input,select{font-family:inherit;font-size:.95rem;padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);flex:1;min-width:120px;}
+button{font-family:inherit;font-size:.9rem;padding:9px 16px;border:none;border-radius:6px;background:var(--accent);color:#fff;cursor:pointer;}
+button.secondary{background:transparent;color:var(--sub);border:1px solid var(--line);}
+button:hover{opacity:.9;}
+.toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+table{width:100%;border-collapse:collapse;overflow-x:auto;display:block;}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);font-size:.9rem;white-space:nowrap;}
+th{color:var(--sub);font-weight:normal;text-transform:uppercase;font-size:.72rem;letter-spacing:.5px;}
+.badge{padding:3px 9px;border-radius:20px;font-size:.75rem;color:#fff;}
+.b-pendente{background:var(--pend);}
+.b-separado{background:var(--sep);}
+.b-entregue{background:var(--ent);}
+.actions button{padding:5px 9px;font-size:.78rem;margin-right:4px;}
+.empty{color:var(--sub);text-align:center;padding:30px 0;font-style:italic;}
+footer{text-align:center;color:var(--sub);font-size:.8rem;margin-top:20px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📦 Organizador de Pedidos</h1>
+  <p class="sub">Cadastre e acompanhe pedidos de clientes — nome, item, quantidade e status.</p>
+
+  <div class="card">
+    <div class="row">
+      <input id="nome" placeholder="Nome do cliente">
+      <input id="item" placeholder="Item">
+      <input id="qtd" type="number" min="1" placeholder="Qtd" style="max-width:90px;">
+      <select id="status">
+        <option value="pendente">Pendente</option>
+        <option value="separado">Separado</option>
+        <option value="entregue">Entregue</option>
+      </select>
+      <button onclick="addPedido()">Adicionar</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input id="busca" placeholder="Buscar por cliente ou item..." oninput="render()" style="flex:2;">
+    <select id="filtro" onchange="render()">
+      <option value="todos">Todos os status</option>
+      <option value="pendente">Pendente</option>
+      <option value="separado">Separado</option>
+      <option value="entregue">Entregue</option>
+    </select>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Cliente</th><th>Item</th><th>Qtd</th><th>Status</th><th>Ações</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty" class="empty" style="display:none;">Nenhum pedido encontrado.</div>
+  </div>
+  <footer>Dados salvos apenas neste navegador.</footer>
+</div>
+
+<script>
+let pedidos = [];
+try { pedidos = JSON.parse(localStorage.getItem('pedidos_v1')) || []; } catch(e) { pedidos = []; }
+
+function save(){
+  try { localStorage.setItem('pedidos_v1', JSON.stringify(pedidos)); } catch(e){}
+}
+
+function addPedido(){
+  const nome = document.getElementById('nome').value.trim();
+  const item = document.getElementById('item').value.trim();
+  const qtd = parseInt(document.getElementById('qtd').value) || 1;
+  const status = document.getElementById('status').value;
+  if(!nome || !item){ alert('Preencha cliente e item.'); return; }
+  pedidos.unshift({id:Date.now(), nome, item, qtd, status});
+  save();
+  document.getElementById('nome').value='';
+  document.getElementById('item').value='';
+  document.getElementById('qtd').value='';
+  render();
+}
+
+function setStatus(id, status){
+  const p = pedidos.find(p=>p.id===id);
+  if(p){ p.status = status; save(); render(); }
+}
+
+function remove(id){
+  pedidos = pedidos.filter(p=>p.id!==id);
+  save();
+  render();
+}
+
+function render(){
+  const busca = document.getElementById('busca').value.toLowerCase();
+  const filtro = document.getElementById('filtro').value;
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty');
+  const list = pedidos.filter(p=>{
+    const matchBusca = p.nome.toLowerCase().includes(busca) || p.item.toLowerCase().includes(busca);
+    const matchFiltro = filtro==='todos' || p.status===filtro;
+    return matchBusca && matchFiltro;
+  });
+  tbody.innerHTML = list.map(p=>`
+    <tr>
+      <td>${escapeHtml(p.nome)}</td>
+      <td>${escapeHtml(p.item)}</td>
+      <td>${p.qtd}</td>
+      <td><span class="badge b-${p.status}">${p.status}</span></td>
+      <td class="actions">
+        <button class="secondary" onclick="cycleStatus(${p.id})">Avançar</button>
+        <button class="secondary" onclick="remove(${p.id})">Excluir</button>
+      </td>
+    </tr>`).join('');
+  empty.style.display = list.length ? 'none' : 'block';
+}
+
+function cycleStatus(id){
+  const order = ['pendente','separado','entregue'];
+  const p = pedidos.find(p=>p.id===id);
+  if(!p) return;
+  const next = order[(order.indexOf(p.status)+1) % order.length];
+  setStatus(id, next);
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+render();
+</script>
+</body>
+</html>
